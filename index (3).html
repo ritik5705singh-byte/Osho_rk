@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="hi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>osho_rk</title>
+    <style>
+        :root { --red: #ed4956; --bg: #000; --border: #262626; --gold: #d4af37; --blue: #0095f6; }
+        body { background: var(--bg); color: #fff; font-family: -apple-system, sans-serif; margin: 0; overflow-x: hidden; }
+        
+        /* Loading Glitch Fix */
+        #boot-loader { position: fixed; inset: 0; background: #000; display: flex; justify-content: center; align-items: center; z-index: 9999; }
+        
+        /* Header & Nav */
+        .nav { background: #000; border-bottom: 1px solid var(--border); padding: 12px 20px; display: flex; justify-content: space-between; align-items: center; position: sticky; top: 0; z-index: 1000; }
+        .nav h2 { margin: 0; font-size: 22px; font-weight: bold; font-style: italic; letter-spacing: -1px; }
+
+        .container { width: 100%; max-width: 470px; margin: 0 auto; min-height: 100vh; }
+        
+        /* Post Styling */
+        .post { border-bottom: 1px solid var(--border); margin-bottom: 10px; padding-bottom: 10px; }
+        .post-header { padding: 12px; font-weight: bold; font-size: 14px; display: flex; align-items: center; gap: 10px; }
+        .post-img { width: 100%; display: block; background: #111; }
+        
+        .post-footer { padding: 12px; }
+        .actions { display: flex; gap: 18px; margin-bottom: 8px; }
+        
+        /* Visit Link Button */
+        .visit-btn { display: inline-block; margin-top: 10px; background: transparent; color: var(--blue); border: 1px solid var(--blue); padding: 5px 15px; border-radius: 5px; text-decoration: none; font-size: 12px; font-weight: bold; }
+
+        .action-btn { background: none; border: none; color: #fff; cursor: pointer; font-size: 24px; padding: 0; }
+        .action-btn.liked { color: var(--red); }
+        .likes-display { font-size: 14px; font-weight: bold; margin-bottom: 6px; }
+        .post-text { font-size: 14px; line-height: 1.4; }
+        
+        .comment-count { font-size: 13px; color: #8e8e8e; margin: 8px 0; cursor: pointer; }
+        .comment-section { padding: 0 12px; font-size: 13px; margin-bottom: 10px; border-left: 1px solid #333; }
+
+        .overlay { position: fixed; inset: 0; background: #000; display: flex; justify-content: center; align-items: center; z-index: 2000; }
+        .modal { background: #000; padding: 30px; width: 310px; text-align: center; border: 1px solid #333; border-radius: 12px; }
+        input, textarea { width: 100%; padding: 12px; margin: 10px 0; background: #121212; border: 1px solid #333; color: #fff; border-radius: 5px; box-sizing: border-box; }
+        .btn-main { background: var(--blue); color: #fff; border: none; padding: 12px; width: 100%; border-radius: 5px; font-weight: bold; cursor: pointer; }
+
+        .hidden { display: none !important; }
+    </style>
+</head>
+<body>
+
+    <div id="boot-loader"><h1 style="font-style:italic">osho_rk</h1></div>
+
+    <div id="login-screen" class="overlay hidden">
+        <div class="modal">
+            <h1 style="margin-bottom: 25px; font-style: italic;">osho_rk</h1>
+            <input type="text" id="uName" placeholder="Username">
+            <input type="password" id="uPass" placeholder="Password">
+            <button class="btn-main" onclick="handleLogin()">Log In / Sign Up</button>
+        </div>
+    </div>
+
+    <div id="admin-panel" class="overlay hidden">
+        <div class="modal" style="width:90%; max-width:400px;">
+            <h3 style="color:var(--gold)">Master Dashboard</h3>
+            <textarea id="pText" rows="3" placeholder="Quote likhein..."></textarea>
+            <input type="text" id="pExternalLink" placeholder="Yahan link daalein (Optional)">
+            <input type="file" id="pFile" accept="image/*">
+            <button class="btn-main" onclick="publish()">POST NOW</button>
+            <button onclick="logout()" style="background:none; color:#555; border:none; margin-top:15px; cursor:pointer;">Exit</button>
+        </div>
+    </div>
+
+    <div id="feed-screen" class="hidden">
+        <div class="nav">
+            <h2>osho_rk</h2>
+            <button onclick="logout()" style="background:none; color:var(--red); border:none; font-weight:bold; cursor:pointer;">Logout</button>
+        </div>
+        <div id="feed-container" class="container"></div>
+    </div>
+
+    <script>
+        const dbBase = "https://osho-app-62a56-default-rtdb.europe-west1.firebasedatabase.app/";
+        const IMGBB_KEY = "ea86e331f6f99f689cd04bef5b09c6fa";
+        const ADMIN_KEY = "Ritik2006";
+
+        // Initial Boot Logic
+        window.onload = () => {
+            const user = localStorage.getItem('osho_user');
+            setTimeout(() => {
+                document.getElementById('boot-loader').classList.add('hidden');
+                if(user) {
+                    if(user === ADMIN_KEY) showAdmin();
+                    else showFeed();
+                } else {
+                    document.getElementById('login-screen').classList.remove('hidden');
+                }
+            }, 800); // 0.8s for smooth transition
+        };
+
+        async function handleLogin() {
+            const name = document.getElementById('uName').value.trim();
+            const pass = document.getElementById('uPass').value;
+            if(!name || !pass) return;
+            if(name === ADMIN_KEY) { localStorage.setItem('osho_user', ADMIN_KEY); location.reload(); return; }
+
+            const res = await fetch(`${dbBase}users/${name}.json`);
+            const data = await res.json();
+            if(!data) {
+                await fetch(`${dbBase}users/${name}.json`, { method:'PUT', body:JSON.stringify({pass}) });
+                localStorage.setItem('osho_user', name); location.reload();
+            } else if(data.pass === pass) {
+                localStorage.setItem('osho_user', name); location.reload();
+            } else { alert("Wrong Password!"); }
+        }
+
+        function showAdmin() { document.getElementById('admin-panel').classList.remove('hidden'); }
+        function showFeed() { document.getElementById('feed-screen').classList.remove('hidden'); loadPosts(); }
+
+        async function loadPosts() {
+            const res = await fetch(dbBase + "posts.json");
+            const data = await res.json();
+            const container = document.getElementById('feed-container');
+            container.innerHTML = "";
+            if(!data) return;
+
+            const user = localStorage.getItem('osho_user');
+            Object.keys(data).reverse().forEach(id => {
+                const post = data[id];
+                const comments = post.comments ? Object.values(post.comments) : [];
+                const likes = post.likes ? Object.keys(post.likes).length : 0;
+                const isLiked = post.likes && post.likes[user];
+
+                container.innerHTML += `
+                    <div class="post">
+                        <div class="post-header">
+                            <div style="width:32px; height:32px; background:linear-gradient(45deg, #f09433, #e6683c); border-radius:50%"></div>
+                            osho_rk
+                        </div>
+                        ${post.img ? `<img src="${post.img}" class="post-img" loading="lazy">` : ''}
+                        <div class="post-footer">
+                            <div class="actions">
+                                <button class="action-btn ${isLiked ? 'liked' : ''}" id="like-${id}" onclick="toggleLike('${id}')">❤️</button>
+                                <button class="action-btn" onclick="realShare('${post.img}', '${post.text}', '${post.link || ''}')">✈️</button>
+                            </div>
+                            <div class="likes-display" id="count-${id}">${likes} likes</div>
+                            <div class="post-text"><span style="font-weight:bold">osho_rk</span> ${post.text}</div>
+                            ${post.link ? `<a href="${post.link}" target="_blank" class="visit-btn">Visit Link</a>` : ''}
+                            <div class="comment-count" onclick="document.getElementById('c-${id}').classList.toggle('hidden')">
+                                View all ${comments.length} comments
+                            </div>
+                        </div>
+                        <div id="c-${id}" class="comment-section hidden">
+                            ${comments.map(c => `<div><b>${c.user}</b> ${c.text}</div>`).join('')}
+                        </div>
+                        <div class="comment-input-box">
+                            <input type="text" id="in-${id}" class="comment-input" placeholder="Add a comment...">
+                            <button class="comment-post-btn" onclick="addComment('${id}')">Post</button>
+                        </div>
+                    </div>`;
+            });
+        }
+
+        async function toggleLike(pid) {
+            const user = localStorage.getItem('osho_user');
+            const btn = document.getElementById(`like-${pid}`);
+            const lbl = document.getElementById(`count-${pid}`);
+            const isL = btn.classList.contains('liked');
+            let count = parseInt(lbl.innerText);
+
+            if(isL) {
+                btn.classList.remove('liked'); lbl.innerText = (count - 1) + " likes";
+                fetch(`${dbBase}posts/${pid}/likes/${user}.json`, { method:'DELETE' });
+            } else {
+                btn.classList.add('liked'); lbl.innerText = (count + 1) + " likes";
+                fetch(`${dbBase}posts/${pid}/likes/${user}.json`, { method:'PUT', body:'true' });
+            }
+        }
+
+        async function addComment(pid) {
+            const text = document.getElementById(`in-${pid}`).value;
+            if(!text) return;
+            const user = localStorage.getItem('osho_user');
+            document.getElementById(`in-${pid}`).value = "";
+            await fetch(`${dbBase}posts/${pid}/comments.json`, { method:'POST', body:JSON.stringify({user, text}) });
+            loadPosts();
+        }
+
+        async function publish() {
+            const text = document.getElementById('pText').value;
+            const link = document.getElementById('pExternalLink').value;
+            const file = document.getElementById('pFile').files[0];
+            if(!text) return;
+
+            let imgUrl = "";
+            if(file) {
+                const fd = new FormData(); fd.append("image", file);
+                const res = await fetch(`https://api.imgbb.com/1/upload?key=${IMGBB_KEY}`, {method:"POST", body:fd});
+                const d = await res.json(); imgUrl = d.data.url;
+            }
+
+            await fetch(`${dbBase}posts.json`, { method:'POST', body:JSON.stringify({text, img:imgUrl, link: link}) });
+            location.reload();
+        }
+
+        function realShare(img, txt, lnk) {
+            const shareText = `*osho_rk*\n\n${txt}\n${lnk ? '\nLink: ' + lnk : ''}\n\nImage: ${img}`;
+            if(navigator.share) {
+                navigator.share({ title:'osho_rk', text: shareText, url: img });
+            } else {
+                window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(shareText)}`);
+            }
+        }
+
+        function logout() { localStorage.removeItem('osho_user'); location.reload(); }
+    </script>
+</body>
+</html>
